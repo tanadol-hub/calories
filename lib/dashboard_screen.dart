@@ -93,7 +93,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       backgroundColor: _bgColor,
       appBar: AppBar(
-        title: Text("DASHBOARD ⚡", style: TextStyle(fontWeight: FontWeight.w900, color: _textWhite, letterSpacing: 1.5)),
+        title: Text("Calories  ⚡", style: TextStyle(fontWeight: FontWeight.w900, color: _textWhite, letterSpacing: 1.5)),
         centerTitle: true,
         backgroundColor: _bgColor,
         elevation: 0,

@@ -2,23 +2,24 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
 class DatabaseHelper {
-  // ชื่อไฟล์ฐานข้อมูล
-  static const _databaseName = 'calories.db'; // <--- ตัวนี้แหละครับที่ Error เมื่อกี้
+  // 🔥 1. เปลี่ยนชื่อไฟล์ DB เป็นชื่อใหม่ (เพื่อบังคับสร้างตารางใหม่)
+  static const _databaseName = 'calories_final.db'; 
   static const _databaseVersion = 1;
 
-  // --- ตารางอาหาร (สำหรับหน้า AddFood & Dashboard) ---
-  static const tableFood = 'food_data';
-  static const columnCalories = 'calories';
-  static const columnDate = 'date';
-
-  // --- ตารางผู้ใช้ (สำหรับหน้า UserSetup & Dashboard) ---
-  static const tableUser = 'user_data';
+  // --- ตารางอาหาร ---
+  static const tableFood = 'food'; // 🔥 2. แก้จาก 'food_data' เป็น 'food'
   static const columnId = '_id';
   static const columnName = 'name';
+  static const columnCalories = 'calories';
+  static const columnDate = 'date';
+  // (ถ้าไม่ได้เก็บรูปอาหาร ตัด columnImage ออกจากตารางอาหาร เพื่อลดบั๊ก)
+
+  // --- ตารางผู้ใช้ ---
+  static const tableUser = 'user_data';
   static const columnTarget = 'target_calories';
   static const columnImage = 'image_path';
 
-  // ทำให้เป็น Singleton
+  // Singleton Pattern
   DatabaseHelper._privateConstructor();
   static final DatabaseHelper instance = DatabaseHelper._privateConstructor();
 
@@ -37,12 +38,12 @@ class DatabaseHelper {
 
   Future _onCreate(Database db, int version) async {
     // 1. สร้างตารางอาหาร
+    // (ลบ columnImage ออกจาก Food ถ้าไม่ได้ถ่ายรูปอาหารทุกมื้อ)
     await db.execute('''
           CREATE TABLE $tableFood (
-            $columnId INTEGER PRIMARY KEY,
+            $columnId INTEGER PRIMARY KEY AUTOINCREMENT,
             $columnName TEXT NOT NULL,
             $columnCalories INTEGER NOT NULL,
-            $columnImage TEXT NOT NULL,
             $columnDate TEXT NOT NULL
           )
           ''');
@@ -50,10 +51,10 @@ class DatabaseHelper {
     // 2. สร้างตารางผู้ใช้
     await db.execute('''
       CREATE TABLE $tableUser (
-        $columnId INTEGER PRIMARY KEY,
+        $columnId INTEGER PRIMARY KEY AUTOINCREMENT,
         $columnName TEXT NOT NULL,
         $columnTarget INTEGER NOT NULL,
-        $columnImage TEXT  -- ช่องนี้สำคัญ!
+        $columnImage TEXT
       )
     ''');
   }
@@ -63,7 +64,7 @@ class DatabaseHelper {
   // ==========================================
   Future<int> insertUser(Map<String, dynamic> row) async {
     Database db = await instance.database;
-    await db.delete(tableUser); // ลบข้อมูลเก่าก่อน (เพราะเรามี User คนเดียว)
+    await db.delete(tableUser); // ลบของเก่าก่อน
     return await db.insert(tableUser, row);
   }
 
@@ -76,20 +77,24 @@ class DatabaseHelper {
     return null;
   }
 
+  Future<int> updateUser(Map<String, dynamic> row) async {
+    Database db = await instance.database;
+    return await db.update(tableUser, row, where: '$columnId = ?', whereArgs: [1]);
+  }
+
   // ==========================================
   // ส่วนที่ 2: จัดการข้อมูลอาหาร (Food)
   // ==========================================
   
-  // เพิ่มอาหาร (ใช้ในหน้า AddFood)
-  Future<int> addFood(Map<String, dynamic> row) async {
+  // เพิ่มอาหาร
+  Future<int> insertFood(Map<String, dynamic> row) async {
     Database db = await instance.database;
     return await db.insert(tableFood, row);
   }
 
-  // ดึงรายการอาหารของ "วันนี้" (ใช้ในหน้า Dashboard)
+  // ดึงรายการอาหารของ "วันนี้"
   Future<List<Map<String, dynamic>>> getTodayFoodList(String dateStr) async {
     Database db = await instance.database;
-    // ค้นหาโดยดูว่าวันที่ "ขึ้นต้นด้วย" วันที่ที่ส่งมาหรือไม่ (เช่น '2026-01-18%')
     return await db.query(tableFood, 
       where: "$columnDate LIKE ?", 
       whereArgs: ['$dateStr%'],
@@ -97,7 +102,7 @@ class DatabaseHelper {
     );
   }
 
-  // คำนวณแคลอรี่รวมของ "วันนี้" (ใช้ในหน้า Dashboard)
+  // คำนวณแคลอรี่รวมของ "วันนี้"
   Future<int> getTodayTotalCalories(String dateStr) async {
     Database db = await instance.database;
     var result = await db.rawQuery(
@@ -110,25 +115,11 @@ class DatabaseHelper {
     }
     return 0;
   }
-  // ... (โค้ดเก่า) ...
 
-  // ดึงข้อมูลอาหารทั้งหมด เรียงจากล่าสุดไปเก่าสุด
+  // 🔥 3. ดึงประวัติทั้งหมด (แก้จุดที่ Error)
   Future<List<Map<String, dynamic>>> getAllFoodHistory() async {
     final db = await instance.database;
-    return await db.query('food', orderBy: 'date DESC');
+    // ใช้ตัวแปร tableFood แทนการพิมพ์ 'food' สดๆ
+    return await db.query(tableFood, orderBy: '$columnDate DESC'); 
   }
-  // ... (โค้ดเก่า) ...
-
-  // อัปเดตข้อมูลผู้ใช้ (แก้ไขชื่อ หรือ เป้าหมายแคล)
-  Future<int> updateUser(Map<String, dynamic> row) async {
-    Database db = await instance.database;
-    // อัปเดตแถวแรกสุด (เพราะเรามี User คนเดียว)
-    return await db.update(tableUser, row, where: '$columnId = ?', whereArgs: [1]);
-  }
-  Future<int> insertFood(Map<String, dynamic> row) async {
-    Database db = await instance.database;
-    return await db.insert(tableFood, row);
-  }
-} // จบ Class
- // จบ Class
-  
+}

@@ -247,6 +247,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
   }
 
   // 💾 ฟังก์ชันบันทึกข้อมูล
+ // 💾 ฟังก์ชันบันทึกข้อมูล
   void _saveFood() async {
     if (_nameController.text.isEmpty) {
       _showSnackBar("กรุณาใส่ชื่อเมนู", Colors.red);
@@ -264,24 +265,29 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
     try {
       await _audioPlayer.play(AssetSource('sounds/eat.mp3')); 
     } catch (e) {
-      print("Error playing sound: $e"); // เผื่อไฟล์เสียงไม่มี จะได้ไม่แอปเด้ง
+      print("Error playing sound: $e"); 
     }
 
     // เตรียมข้อมูล
-    final imagePath = _selectedImage?.path ?? '';
+    // ❌ ลบบรรทัด final imagePath = ... ทิ้งไปเลยก็ได้ครับ ไม่ได้ใช้แล้ว
     Map<String, dynamic> row = {
       DatabaseHelper.columnName: _nameController.text,
       DatabaseHelper.columnCalories: calories,
       DatabaseHelper.columnDate: DateTime.now().toIso8601String(),
-      'image_path': imagePath,
+      // ❌ ลบบรรทัด 'image_path': imagePath, ออก! (สาเหตุที่บันทึกไม่ได้คือบรรทัดนี้)
     };
 
-    // บันทึกลง Database
-    await DatabaseHelper.instance.insertFood(row);
+    try {
+      // บันทึกลง Database
+      await DatabaseHelper.instance.insertFood(row);
 
-    // ปิดหน้า
-    if (mounted) {
-      Navigator.pop(context, true); 
+      // ปิดหน้า
+      if (mounted) {
+        Navigator.pop(context, true); 
+      }
+    } catch (e) {
+      _showSnackBar("บันทึกไม่สำเร็จ: $e", Colors.red);
+      print("Database Error: $e");
     }
   }
 
