@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'database_helper.dart';
 import 'user_setup_screen.dart';
-import 'dashboard_screen.dart'; // <--- เพิ่มบรรทัดนี้
+import 'main_screen.dart'; // <--- สำคัญ! เราต้องเรียกตัวนี้เพื่อให้มีเมนูด้านล่าง
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,23 +14,37 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Fitness Tamagotchi',
+      title: 'Fitness RPG', // ตั้งชื่อแอปให้เท่ๆ
+      debugShowCheckedModeBanner: false, // เอาแถบ Debug มุมขวาบนออก
+
+      // 🔥 ตั้งค่า Theme รวม (Dark Mode) ให้เข้ากับหน้า Dashboard
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        brightness: Brightness.dark,
+        primaryColor: const Color(0xFF00E676), // สีเขียวนีออน
+        scaffoldBackgroundColor: const Color(0xFF1E1E1E), // สีพื้นหลังหลัก
         useMaterial3: true,
+        // กำหนดสีพื้นฐานให้ทั้งแอป
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFF00E676),
+          secondary: Color(0xFF00E676),
+          surface: Color(0xFF2C2C2C),
+        ),
       ),
-      // ในความเป็นจริงเราต้องเช็คก่อนว่ามี User หรือยัง แต่ตอนนี้ให้เปิดหน้า Setup ก่อนเลย
+
+      // เริ่มต้นที่ตัวเช็ค User
       home: const CheckUserWrapper(),
     );
   }
 }
 
-// ตัวเช็คว่าควรไปหน้าไหน (Setup หรือ Home)
+// ---------------------------------------------------------
+// ตัวเช็คว่าควรไปหน้าไหน (Setup หรือ Main Game)
+// ---------------------------------------------------------
 class CheckUserWrapper extends StatefulWidget {
   const CheckUserWrapper({super.key});
 
   @override
-  _CheckUserWrapperState createState() => _CheckUserWrapperState();
+  State<CheckUserWrapper> createState() => _CheckUserWrapperState();
 }
 
 class _CheckUserWrapperState extends State<CheckUserWrapper> {
@@ -42,80 +56,35 @@ class _CheckUserWrapperState extends State<CheckUserWrapper> {
     _checkUser();
   }
 
+  // ฟังก์ชันเช็คว่ามี User ใน Database หรือยัง
   void _checkUser() async {
     final user = await DatabaseHelper.instance.getUser();
-    setState(() {
-      hasUser = user != null;
-    });
+    if (mounted) {
+      setState(() {
+        hasUser = user != null;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // 1. สถานะกำลังโหลด (หมุนติ้วๆ สีเขียว)
     if (hasUser == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator())); // กำลังโหลด
-    }
-    if (hasUser == true) {
-      return DashboardScreen(); // มี User แล้วไปหน้าหลัก
-    } else {
-      return const UserSetupScreen(); // ยังไม่มี User ไปหน้าสร้าง
-    }
-  }
-}
-
-// --- หน้า Home ชั่วคราว (Placeholder) ---
-// เราจะมาแก้หน้านี้ในขั้นตอนถัดไป ให้เป็น Dashboard จริงๆ
-// แก้ไขเฉพาะ class นี้ในไฟล์ lib/main.dart
-
-class PlaceholderHomeScreen extends StatelessWidget {
-  const PlaceholderHomeScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("หน้าหลัก (รอพัฒนา)"),
-        actions: [
-          // ปุ่ม Reset อยู่มุมขวาบน
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.red),
-            onPressed: () async {
-              // 1. ลบข้อมูล User ใน Database
-              final db = await DatabaseHelper.instance.database;
-              await db.delete('user_profile');
-              
-              // 2. รีสตาร์ทแอปกลับไปหน้าแรก
-              if (context.mounted) {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => const CheckUserWrapper()),
-                  (route) => false,
-                );
-              }
-            },
-          )
-        ],
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.check_circle, color: Colors.green, size: 80),
-            const SizedBox(height: 20),
-            const Text("บันทึกข้อมูลเรียบร้อย!", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            const Text("ระบบจำค่าของคุณไว้แล้ว"),
-            const SizedBox(height: 10),
-            const Text("(กดปุ่มสีแดงมุมขวาบน เพื่อลบค่าแล้วเริ่มใหม่)", style: TextStyle(color: Colors.grey)),
-            const SizedBox(height: 30),
-            ElevatedButton(
-              onPressed: () {
-                 // เดี๋ยวเราจะทำปุ่มนี้ให้ไปหน้า Dashboard ของจริง
-              },
-              child: const Text("รอทำหน้า Dashboard ต่อไป..."),
-            )
-          ],
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: Color(0xFF00E676)),
         ),
-      ),
-    );
+      );
+    }
+    
+    // 2. ถ้ามี User แล้ว -> ไปหน้า MainScreen (หน้าที่มี Tab Bar Dashboard/Gym/History)
+    if (hasUser == true) {
+      return const MainScreen(); 
+    } 
+    
+    // 3. ถ้ายังไม่มี User -> ไปหน้าตั้งค่า UserSetupScreen
+    else {
+      return const UserSetupScreen(); 
+    }
   }
 }
